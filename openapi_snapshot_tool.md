@@ -2,12 +2,18 @@
 
 ## Phase Index (Status)
 
-| Phase | Scope | Status |
-| --- | --- | --- |
-| 0 | CLI scaffold and command shape | Planned |
-| 1 | Fetch + minify + file write | Planned |
-| 2 | Reduction (paths/components only) | Planned |
-| 3 | UX polish, docs, release | Planned |
+| Phase | Subphase | Scope | Key Tests | Status |
+| --- | --- | --- | --- | --- |
+| 0 | 0.1 | CLI flags + help text | required args parse | Planned |
+| 0 | 0.2 | Exit codes + errors | missing args -> exit 1 | Planned |
+| 1 | 1.1 | HTTP fetch | 200 OK + timeout | Planned |
+| 1 | 1.2 | JSON parse + minify | invalid JSON -> exit 2 | Planned |
+| 1 | 1.3 | Atomic write | write failure keeps old | Planned |
+| 2 | 2.1 | Reduction | paths/components only | Planned |
+| 2 | 2.2 | Reduced validation | missing keys -> exit 3 | Planned |
+| 3 | 3.1 | Stdout mode | no file created | Planned |
+| 3 | 3.2 | Docs + examples | help text includes example | Planned |
+| 3 | 3.3 | Release checklist | cargo publish ready | Planned |
 
 ---
 
@@ -145,13 +151,16 @@ Deliverables:
 - Clear help text and examples.
 
 Tests:
+Unit:
 - CLI parsing accepts required args.
-- Missing `--url` or `--out` returns exit code 1 and help text.
 - `--stdout` without `--out` is accepted.
 - `--stdout` with `--out` is rejected (or `--out` is ignored) with a clear message.
-- Unknown flags return non-zero and show usage.
 - `--reduce` rejects unsupported values and mixed-case input.
 - `--header` accepts multiple entries and preserves order.
+
+Behavior:
+- Missing `--url` or `--out` returns exit code 1 and help text.
+- Unknown flags return non-zero and show usage.
 
 ### Phase 1: Fetch + Minify + File Write
 
@@ -165,14 +174,19 @@ Deliverables:
 - Basic error reporting.
 
 Tests:
+Integration:
 - Fetch from a local test server returns 200 and valid JSON.
 - Non-200 response returns exit code 1.
 - Network timeout returns exit code 1 with a timeout error.
 - DNS failure or connection refused returns exit code 1.
+
+Unit:
 - Invalid JSON returns exit code 2.
-- Unwritable output path returns exit code 4.
 - Output file contains a single line of JSON.
 - Output is valid JSON when parsed again.
+
+Filesystem:
+- Unwritable output path returns exit code 4.
 - File write is atomic (temp file never left behind on success).
 - If write fails mid-way, existing output file remains unchanged.
 
@@ -187,6 +201,7 @@ Deliverables:
 - No unexpected fields in reduced output.
 
 Tests:
+Unit:
 - `--reduce paths` outputs only `paths`.
 - `--reduce components` outputs only `components`.
 - `--reduce paths,components` outputs both.
@@ -208,10 +223,13 @@ Deliverables:
 - Crate published to crates.io.
 
 Tests:
+Behavior:
 - `--stdout` prints valid JSON and does not create output file.
+- CLI returns exit code 0 on success with no stderr output.
+
+Docs:
 - Help text includes at least one end-to-end example.
 - README includes the watcher workflow and the zero-hook usage.
-- CLI returns exit code 0 on success with no stderr output.
 
 ---
 
