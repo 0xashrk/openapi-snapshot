@@ -17,17 +17,6 @@ fn mock_server_with_body(body: &str) -> MockServer {
 }
 
 #[test]
-fn missing_out_requires_stdout() {
-    let server = mock_server_with_body(r#"{"openapi":"3.0.3"}"#);
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
-    cmd.arg("--url").arg(server.url("/openapi.json"));
-    cmd.assert()
-        .failure()
-        .code(1)
-        .stderr(contains("--out is required"));
-}
-
-#[test]
 fn writes_minified_output() {
     let server = mock_server_with_body(
         r#"{"openapi":"3.0.3","paths":{"/health":{}},"components":{}}"#,
@@ -141,11 +130,26 @@ fn directory_as_output_returns_exit_code_4() {
 }
 
 #[test]
+fn creates_output_directory_if_missing() {
+    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
+    let temp = tempdir().unwrap();
+    let out_path = temp.path().join("nested/dir/openapi.min.json");
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--url")
+        .arg(server.url("/openapi.json"))
+        .arg("--out")
+        .arg(&out_path);
+    cmd.assert().success();
+    assert!(out_path.exists());
+}
+
+
+#[test]
 fn help_includes_example() {
     let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
     cmd.arg("--help");
     cmd.assert()
         .success()
-        .stdout(contains("Example:"))
-        .stdout(contains("openapi-snapshot --url"));
+        .stdout(contains("Examples:"))
+        .stdout(contains("openapi-snapshot watch"));
 }

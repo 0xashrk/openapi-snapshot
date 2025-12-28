@@ -14,6 +14,9 @@
 | 3 | 3.1 | Stdout mode | no file created | Done |
 | 3 | 3.2 | Docs + examples | help text includes example | Done |
 | 3 | 3.3 | Release checklist | cargo publish ready | Done |
+| 4 | 4.1 | Watch mode | watch command uses defaults | Done |
+| 4 | 4.2 | Default paths + auto mkdir | output dir auto-created | Done |
+| 4 | 4.3 | Docs update | README watch section simplified | Done |
 
 ---
 
@@ -89,16 +92,27 @@ Leave it running. Every code change:
 
 ## CLI Contract
 
-Required:
+Commands:
+- `openapi-snapshot` (one-shot fetch)
+- `openapi-snapshot watch` (poll and refresh on an interval)
+
+Defaults (both commands):
+- URL: `http://localhost:3000/api-docs/openapi.json`
+- Output: `openapi/backend_openapi.min.json`
+
+Watch defaults:
+- Reduce: `paths,components`
+- Interval: `2000ms`
+
+Optional flags:
 - `--url <string>`: Source OpenAPI JSON URL.
 - `--out <path>`: Output path.
-
-Optional:
 - `--reduce <list>`: Comma-separated list, supports `paths` and/or `components`.
 - `--minify` (default true): When set, output is single-line JSON.
 - `--timeout-ms <int>`: HTTP timeout.
 - `--header <key:value>`: Optional repeated header for auth (e.g., API tokens).
-- `--stdout`: Print to stdout instead of file (if set, `--out` becomes optional).
+- `--stdout`: Print to stdout instead of file (if set, `--out` is ignored).
+- `watch --interval-ms <int>`: Polling interval for refresh.
 
 Exit codes:
 - `0`: success
@@ -119,6 +133,7 @@ Exit codes:
 - If `--out` is used, write atomically:
   - write to temp file in same directory
   - rename to final path
+- Output directories are created automatically if missing.
 
 ---
 
@@ -230,6 +245,22 @@ Behavior:
 Docs:
 - Help text includes at least one end-to-end example.
 - README includes the watcher workflow and the zero-hook usage.
+
+### Phase 4: Watch Mode + Defaults
+
+Subphases:
+- 4.1: Add `watch` subcommand with interval polling.
+- 4.2: Provide defaults for URL, output path, and reduction in watch mode.
+- 4.3: Simplify README commands to use `openapi-snapshot watch`.
+
+Deliverables:
+- `openapi-snapshot watch` runs without flags.
+- Output directory is created automatically.
+- README shows the short watch command and defaults.
+
+Tests:
+- Defaults apply in watch mode (unit test).
+- Output directory auto-creation succeeds.
 
 ---
 

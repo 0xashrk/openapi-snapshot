@@ -1,22 +1,41 @@
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::Value;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+const DEFAULT_URL: &str = "http://localhost:3000/api-docs/openapi.json";
+const DEFAULT_OUT: &str = "openapi/backend_openapi.min.json";
+const DEFAULT_REDUCE: &str = "paths,components";
+const DEFAULT_INTERVAL_MS: u64 = 2_000;
 
 #[derive(Parser, Debug)]
 #[command(
     name = "openapi-snapshot",
     version,
     about = "Fetch and save a minified OpenAPI JSON snapshot.",
-    after_help = "Example:\n  openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out spec/backend_openapi.min.json --reduce paths,components"
+    after_help = "Examples:\n  openapi-snapshot\n  openapi-snapshot watch\n  openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json"
 )]
 pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    Watch(WatchArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct CommonArgs {
     #[arg(long)]
-    pub url: String,
+    pub url: Option<String>,
     #[arg(long)]
     pub out: Option<PathBuf>,
     #[arg(long)]
@@ -33,6 +52,18 @@ pub struct Cli {
     pub header: Vec<String>,
     #[arg(long)]
     pub stdout: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct WatchArgs {
+    #[arg(long, default_value_t = DEFAULT_INTERVAL_MS)]
+    pub interval_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Mode {
+    Snapshot,
+    Watch { interval_ms: u64 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,21 +93,46 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_cli(cli: Cli) -> Result<Self, AppError> {
-        let reduce = match cli.reduce {
-            Some(value) => parse_reduce_list(&value)?,
+    pub fn from_cli(cli: Cli) -> Result<(Self, Mode), AppError> {
+        let mode = match cli.command {
+            Some(Command::Watch(args)) => Mode::Watch {
+                interval_ms: args.interval_ms,
+            },
+            None => Mode::Snapshot,
+        };
+
+        let reduce_value = match (&cli.common.reduce, mode) {
+            (Some(value), _) => Some(value.as_str()),
+            (None, Mode::Watch { .. }) => Some(DEFAULT_REDUCE),
+            _ => None,
+        };
+        let reduce = match reduce_value {
+            Some(value) => parse_reduce_list(value)?,
             None => Vec::new(),
         };
 
-        Ok(Self {
-            url: cli.url,
-            out: cli.out,
-            reduce,
-            minify: cli.minify,
-            timeout_ms: cli.timeout_ms,
-            headers: cli.header,
-            stdout: cli.stdout,
-        })
+        let url = cli
+            .common
+            .url
+            .unwrap_or_else(|| DEFAULT_URL.to_string());
+        let out = if cli.common.stdout {
+            cli.common.out
+        } else {
+            Some(cli.common.out.unwrap_or_else(|| PathBuf::from(DEFAULT_OUT)))
+        };
+
+        Ok((
+            Self {
+                url,
+                out,
+                reduce,
+                minify: cli.common.minify,
+                timeout_ms: cli.common.timeout_ms,
+                headers: cli.common.header,
+                stdout: cli.common.stdout,
+            },
+            mode,
+        ))
     }
 }
 
@@ -268,6 +324,11 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), AppError> {
     let parent = path
         .parent()
         .ok_or_else(|| AppError::Io("output path has no parent directory".to_string()))?;
+    if let Err(err) = fs::create_dir_all(parent) {
+        return Err(AppError::Io(format!(
+            "failed to create output directory: {err}"
+        )));
+    }
 
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -306,6 +367,22 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+pub fn run_watch(config: &Config, interval_ms: u64) -> Result<(), AppError> {
+    loop {
+        match build_output(config) {
+            Ok(payload) => {
+                if let Err(err) = write_output(config, &payload) {
+                    eprintln!("{err}");
+                }
+            }
+            Err(err) => {
+                eprintln!("{err}");
+            }
+        }
+        thread::sleep(Duration::from_millis(interval_ms.max(250)));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +417,26 @@ mod tests {
         let input = serde_json::json!({"paths": {"x": 1}});
         let err = reduce_openapi(input, &[ReduceKey::Components]).unwrap_err();
         assert!(matches!(err, AppError::Reduce(_)));
+    }
+
+    #[test]
+    fn defaults_apply_for_watch_mode() {
+        let cli = Cli {
+            command: Some(Command::Watch(WatchArgs { interval_ms: 500 })),
+            common: CommonArgs {
+                url: None,
+                out: None,
+                reduce: None,
+                minify: true,
+                timeout_ms: 10_000,
+                header: Vec::new(),
+                stdout: false,
+            },
+        };
+        let (config, mode) = Config::from_cli(cli).unwrap();
+        assert_eq!(config.url, DEFAULT_URL);
+        assert_eq!(config.out.unwrap(), PathBuf::from(DEFAULT_OUT));
+        assert_eq!(config.reduce, vec![ReduceKey::Paths, ReduceKey::Components]);
+        assert!(matches!(mode, Mode::Watch { .. }));
     }
 }
