@@ -14,7 +14,7 @@ Fetch a running backend's OpenAPI JSON and write a readable snapshot for agents 
 
 - Fetches OpenAPI JSON from a running server.
 - Writes pretty JSON by default.
-- Optionally minifies or reduces to just `paths` and `components`.
+- Optionally minifies, reduces, or outputs a minimal outline.
 
 ## Why this exists
 
@@ -30,6 +30,8 @@ Backend contract: openapi/backend_openapi.json
 ```
 
 3) In a separate frontend repo, point to that same file path (relative link or shared mount). This keeps frontend work aligned with the backend contract.
+
+If you want a much smaller file for agents, use the outline profile (see below).
 
 ## When to use it
 
@@ -71,6 +73,12 @@ Reduce to inputs/outputs only:
 openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --reduce paths,components
 ```
 
+Outline profile (minimal path + schema refs):
+```
+openapi-snapshot --profile outline --out openapi/backend_openapi.outline.json
+```
+Note: `--reduce` is not supported with `--profile outline`.
+
 Add auth header:
 ```
 openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --header "Authorization: Bearer TOKEN"
@@ -106,6 +114,11 @@ If the default URL is unreachable and you're in a terminal, `watch` will prompt 
 Override anything if needed:
 ```
 openapi-snapshot watch --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --reduce paths,components --interval-ms 2000
+```
+
+Outline watch:
+```
+openapi-snapshot watch --profile outline --out openapi/backend_openapi.outline.json
 ```
 
 Leave it running. It refreshes the snapshot file on the interval.

@@ -1,8 +1,8 @@
 [package]
 name = "openapi-snapshot"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
-description = "Fetch and save a minified OpenAPI JSON snapshot from a running server."
+description = "Fetch and save an OpenAPI JSON snapshot from a running server."
 license = "MIT"
 repository = "https://github.com/0xashrk/openapi-snapshot"
 readme = "README.md"
