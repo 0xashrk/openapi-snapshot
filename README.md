@@ -6,10 +6,10 @@ Small CLI spec for a tool that fetches a running backend's OpenAPI JSON and writ
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | CLI scaffold and command shape | Planned |
-| 1 | Fetch + minify + file write | Planned |
-| 2 | Reduction (paths/components only) | Planned |
-| 3 | UX polish, docs, release | Planned |
+| 0 | CLI scaffold and command shape | Done |
+| 1 | Fetch + minify + file write | Done |
+| 2 | Reduction (paths/components only) | Done |
+| 3 | UX polish, docs, release | In Progress |
 
 For subphases and test plans, see `openapi_snapshot_tool.md`.
 

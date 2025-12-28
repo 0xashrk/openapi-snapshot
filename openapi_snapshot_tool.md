@@ -4,15 +4,15 @@
 
 | Phase | Subphase | Scope | Key Tests | Status |
 | --- | --- | --- | --- | --- |
-| 0 | 0.1 | CLI flags + help text | required args parse | Planned |
-| 0 | 0.2 | Exit codes + errors | missing args -> exit 1 | Planned |
-| 1 | 1.1 | HTTP fetch | 200 OK + timeout | Planned |
-| 1 | 1.2 | JSON parse + minify | invalid JSON -> exit 2 | Planned |
-| 1 | 1.3 | Atomic write | write failure keeps old | Planned |
-| 2 | 2.1 | Reduction | paths/components only | Planned |
-| 2 | 2.2 | Reduced validation | missing keys -> exit 3 | Planned |
-| 3 | 3.1 | Stdout mode | no file created | Planned |
-| 3 | 3.2 | Docs + examples | help text includes example | Planned |
+| 0 | 0.1 | CLI flags + help text | required args parse | Done |
+| 0 | 0.2 | Exit codes + errors | missing args -> exit 1 | Done |
+| 1 | 1.1 | HTTP fetch | 200 OK + timeout | Done |
+| 1 | 1.2 | JSON parse + minify | invalid JSON -> exit 2 | Done |
+| 1 | 1.3 | Atomic write | write failure keeps old | Done |
+| 2 | 2.1 | Reduction | paths/components only | Done |
+| 2 | 2.2 | Reduced validation | missing keys -> exit 3 | Done |
+| 3 | 3.1 | Stdout mode | no file created | Done |
+| 3 | 3.2 | Docs + examples | help text includes example | In Progress |
 | 3 | 3.3 | Release checklist | cargo publish ready | Planned |
 
 ---
