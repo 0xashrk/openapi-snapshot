@@ -8,7 +8,12 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Parser, Debug)]
-#[command(name = "openapi-snapshot", version, about = "Fetch and save a minified OpenAPI JSON snapshot.")]
+#[command(
+    name = "openapi-snapshot",
+    version,
+    about = "Fetch and save a minified OpenAPI JSON snapshot.",
+    after_help = "Example:\n  openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out spec/backend_openapi.min.json --reduce paths,components"
+)]
 pub struct Cli {
     #[arg(long)]
     pub url: String,

@@ -12,8 +12,8 @@
 | 2 | 2.1 | Reduction | paths/components only | Done |
 | 2 | 2.2 | Reduced validation | missing keys -> exit 3 | Done |
 | 3 | 3.1 | Stdout mode | no file created | Done |
-| 3 | 3.2 | Docs + examples | help text includes example | In Progress |
-| 3 | 3.3 | Release checklist | cargo publish ready | Planned |
+| 3 | 3.2 | Docs + examples | help text includes example | Done |
+| 3 | 3.3 | Release checklist | cargo publish ready | Done |
 
 ---
 

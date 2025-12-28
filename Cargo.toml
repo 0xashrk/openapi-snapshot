@@ -2,6 +2,12 @@
 name = "openapi-snapshot"
 version = "0.1.0"
 edition = "2024"
+description = "Fetch and save a minified OpenAPI JSON snapshot from a running server."
+license = "MIT"
+repository = "https://github.com/0xashrk/openapi-snapshot"
+readme = "README.md"
+keywords = ["openapi", "swagger", "snapshot", "cli", "api"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }

@@ -139,3 +139,13 @@ fn directory_as_output_returns_exit_code_4() {
         .arg(temp.path());
     cmd.assert().failure().code(4);
 }
+
+#[test]
+fn help_includes_example() {
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(contains("Example:"))
+        .stdout(contains("openapi-snapshot --url"));
+}
