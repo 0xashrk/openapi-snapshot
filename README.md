@@ -63,6 +63,8 @@ Defaults:
 - URL: `http://localhost:3000/api-docs/openapi.json`
 - Output: `openapi/backend_openapi.min.json`
 
+If the default URL is unreachable and you're in a terminal, the CLI will prompt you for a port or full URL.
+
 Reduce to inputs/outputs only:
 ```
 openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json --reduce paths,components
@@ -91,6 +93,8 @@ Defaults for `watch`:
 - Output: `openapi/backend_openapi.min.json`
 - Reduce: `paths,components`
 - Interval: 2000ms
+
+If the default URL is unreachable and you're in a terminal, `watch` will prompt you for a port or full URL once and continue with that value.
 
 Override anything if needed:
 ```

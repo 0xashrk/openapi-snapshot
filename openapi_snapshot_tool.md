@@ -17,6 +17,7 @@
 | 4 | 4.1 | Watch mode | watch command uses defaults | Done |
 | 4 | 4.2 | Default paths + auto mkdir | output dir auto-created | Done |
 | 4 | 4.3 | Docs update | README watch section simplified | Done |
+| 4 | 4.4 | URL prompt | prompt for port when default fails | Done |
 
 ---
 
@@ -252,15 +253,18 @@ Subphases:
 - 4.1: Add `watch` subcommand with interval polling.
 - 4.2: Provide defaults for URL, output path, and reduction in watch mode.
 - 4.3: Simplify README commands to use `openapi-snapshot watch`.
+- 4.4: Prompt for port/URL if default endpoint is unreachable in a terminal.
 
 Deliverables:
 - `openapi-snapshot watch` runs without flags.
 - Output directory is created automatically.
 - README shows the short watch command and defaults.
+- Default URL failure prompts for a port or full URL (TTY only).
 
 Tests:
 - Defaults apply in watch mode (unit test).
 - Output directory auto-creation succeeds.
+- URL input normalization accepts port, host:port, or full URL.
 
 ---
 
