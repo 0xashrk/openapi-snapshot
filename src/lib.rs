@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const DEFAULT_URL: &str = "http://localhost:3000/api-docs/openapi.json";
-const DEFAULT_OUT: &str = "openapi/backend_openapi.min.json";
+const DEFAULT_OUT: &str = "openapi/backend_openapi.json";
 const DEFAULT_REDUCE: &str = "paths,components";
 const DEFAULT_INTERVAL_MS: u64 = 2_000;
 
@@ -17,8 +17,8 @@ const DEFAULT_INTERVAL_MS: u64 = 2_000;
 #[command(
     name = "openapi-snapshot",
     version,
-    about = "Fetch and save a minified OpenAPI JSON snapshot.",
-    after_help = "Examples:\n  openapi-snapshot\n  openapi-snapshot watch\n  openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json"
+    about = "Fetch and save an OpenAPI JSON snapshot.",
+    after_help = "Examples:\n  openapi-snapshot\n  openapi-snapshot watch\n  openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json\n  openapi-snapshot --minify true --out openapi/backend_openapi.min.json"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -42,7 +42,7 @@ pub struct CommonArgs {
     pub reduce: Option<String>,
     #[arg(
         long,
-        default_value_t = true,
+        default_value_t = false,
         value_parser = clap::builder::BoolishValueParser::new()
     )]
     pub minify: bool,

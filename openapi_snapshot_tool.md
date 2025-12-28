@@ -18,6 +18,9 @@
 | 4 | 4.2 | Default paths + auto mkdir | output dir auto-created | Done |
 | 4 | 4.3 | Docs update | README watch section simplified | Done |
 | 4 | 4.4 | URL prompt | prompt for port when default fails | Done |
+| 5 | 5.1 | Pretty output default | default output is multi-line JSON | Done |
+| 5 | 5.2 | Default output path update | default path drops `.min` | Done |
+| 5 | 5.3 | Docs + tests | README + tests reflect defaults | Done |
 
 ---
 
@@ -99,7 +102,8 @@ Commands:
 
 Defaults (both commands):
 - URL: `http://localhost:3000/api-docs/openapi.json`
-- Output: `openapi/backend_openapi.min.json`
+- Output: `openapi/backend_openapi.json`
+- Minify: `false` (pretty JSON)
 
 Watch defaults:
 - Reduce: `paths,components`
@@ -126,7 +130,7 @@ Exit codes:
 
 ## Output Requirements
 
-- Default output: minified JSON, single line.
+- Default output: pretty JSON, multi-line.
 - Reduced output: JSON containing only:
   - `paths`
   - `components`
@@ -265,6 +269,22 @@ Tests:
 - Defaults apply in watch mode (unit test).
 - Output directory auto-creation succeeds.
 - URL input normalization accepts port, host:port, or full URL.
+
+### Phase 5: Pretty Output Default
+
+Subphases:
+- 5.1: Default `--minify` to `false`.
+- 5.2: Change default output path to `openapi/backend_openapi.json`.
+- 5.3: Update README and tests to match the new defaults.
+
+Deliverables:
+- Running `openapi-snapshot` writes a readable JSON file by default.
+- Minified output is still available with `--minify true`.
+- README and tests describe and validate the new defaults.
+
+Tests:
+- Default output contains newlines (pretty JSON).
+- `--minify true` produces single-line JSON.
 
 ---
 

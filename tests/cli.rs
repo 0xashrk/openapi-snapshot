@@ -17,7 +17,7 @@ fn mock_server_with_body(body: &str) -> MockServer {
 }
 
 #[test]
-fn writes_minified_output() {
+fn writes_pretty_output_by_default() {
     let server = mock_server_with_body(
         r#"{"openapi":"3.0.3","paths":{"/health":{}},"components":{}}"#,
     );
@@ -31,7 +31,7 @@ fn writes_minified_output() {
     cmd.assert().success();
 
     let contents = fs::read_to_string(&out_path).unwrap();
-    assert!(!contents.contains('\n'));
+    assert!(contents.contains('\n'));
     let parsed: Value = serde_json::from_str(&contents).unwrap();
     assert!(parsed.get("paths").is_some());
 }
@@ -115,6 +115,24 @@ fn stdout_writes_output_without_file() {
         .arg("--stdout");
     cmd.assert().success().stdout(contains("openapi"));
     assert!(!out_path.exists());
+}
+
+#[test]
+fn minify_true_writes_single_line() {
+    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
+    let temp = tempdir().unwrap();
+    let out_path = temp.path().join("openapi.min.json");
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--url")
+        .arg(server.url("/openapi.json"))
+        .arg("--out")
+        .arg(&out_path)
+        .arg("--minify")
+        .arg("true");
+    cmd.assert().success();
+
+    let contents = fs::read_to_string(&out_path).unwrap();
+    assert!(!contents.contains('\n'));
 }
 
 #[test]

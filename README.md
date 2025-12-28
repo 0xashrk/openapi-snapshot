@@ -4,17 +4,17 @@
 >
 > "Give agents the backend contract, and they stop guessing. This tool keeps that contract current."
 
-Fetch a running backend's OpenAPI JSON and write a minified snapshot for agents and frontend tooling.
+Fetch a running backend's OpenAPI JSON and write a readable snapshot for agents and frontend tooling.
 
 ## Overview
 
-`openapi-snapshot` is a small CLI that pulls a live OpenAPI JSON endpoint and writes a single-line JSON file. The goal is to keep a lightweight, up-to-date backend contract that agents and frontend tooling can read without guessing.
+`openapi-snapshot` is a small CLI that pulls a live OpenAPI JSON endpoint and writes a readable JSON file. The goal is to keep a lightweight, up-to-date backend contract that agents and frontend tooling can read without guessing.
 
 ## What it does
 
 - Fetches OpenAPI JSON from a running server.
-- Minifies to a single-line JSON file.
-- Optionally reduces to just `paths` and `components`.
+- Writes pretty JSON by default.
+- Optionally minifies or reduces to just `paths` and `components`.
 
 ## Why this exists
 
@@ -22,11 +22,11 @@ Agents and frontend projects work best when they can see the backend contract. T
 
 ## Recommended usage (agents + frontend)
 
-1) Generate the snapshot file in a predictable location (e.g., `openapi/backend_openapi.min.json`).
+1) Generate the snapshot file in a predictable location (e.g., `openapi/backend_openapi.json`).
 2) Reference it in your `AGENTS.md` or `CLAUDE.md` so agents always load it:
 
 ```
-Backend contract: openapi/backend_openapi.min.json
+Backend contract: openapi/backend_openapi.json
 ```
 
 3) In a separate frontend repo, point to that same file path (relative link or shared mount). This keeps frontend work aligned with the backend contract.
@@ -48,7 +48,7 @@ Requires the OpenAPI URL to be reachable (server running).
 
 Basic:
 ```
-openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json
+openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json
 ```
 
 Notes:
@@ -61,23 +61,29 @@ openapi-snapshot
 ```
 Defaults:
 - URL: `http://localhost:3000/api-docs/openapi.json`
-- Output: `openapi/backend_openapi.min.json`
+- Output: `openapi/backend_openapi.json`
+- Minify: `false` (pretty JSON)
 
 If the default URL is unreachable and you're in a terminal, the CLI will prompt you for a port or full URL.
 
 Reduce to inputs/outputs only:
 ```
-openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json --reduce paths,components
+openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --reduce paths,components
 ```
 
 Add auth header:
 ```
-openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json --header "Authorization: Bearer TOKEN"
+openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --header "Authorization: Bearer TOKEN"
 ```
 
 Print to stdout:
 ```
 openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --stdout
+```
+
+Minified output (single line):
+```
+openapi-snapshot --minify true --out openapi/backend_openapi.min.json
 ```
 
 ## Continuous update
@@ -90,22 +96,23 @@ openapi-snapshot watch
 
 Defaults for `watch`:
 - URL: `http://localhost:3000/api-docs/openapi.json`
-- Output: `openapi/backend_openapi.min.json`
+- Output: `openapi/backend_openapi.json`
 - Reduce: `paths,components`
 - Interval: 2000ms
+- Minify: `false`
 
 If the default URL is unreachable and you're in a terminal, `watch` will prompt you for a port or full URL once and continue with that value.
 
 Override anything if needed:
 ```
-openapi-snapshot watch --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json --reduce paths,components --interval-ms 2000
+openapi-snapshot watch --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --reduce paths,components --interval-ms 2000
 ```
 
 Leave it running. It refreshes the snapshot file on the interval.
 
 If you already run your backend separately, you can skip the restart and just run the exporter on a timer or on demand:
 ```
-openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.min.json --reduce paths,components
+openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --reduce paths,components
 ```
 
 ## Notes
