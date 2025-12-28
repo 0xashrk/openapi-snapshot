@@ -60,6 +60,30 @@ fn reduces_output_to_paths_and_components() {
 }
 
 #[test]
+fn outline_profile_outputs_paths_and_schemas_only() {
+    let server = mock_server_with_body(
+        r#"{"openapi":"3.0.3","info":{"title":"x"},"paths":{"/health":{"get":{"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/HealthResponse"}}}}}}}},"components":{"schemas":{"HealthResponse":{"type":"object","properties":{"status":{"type":"string"}},"required":["status"]}}}}"#,
+    );
+    let temp = tempdir().unwrap();
+    let out_path = temp.path().join("openapi.outline.json");
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--url")
+        .arg(server.url("/openapi.json"))
+        .arg("--out")
+        .arg(&out_path)
+        .arg("--profile")
+        .arg("outline");
+    cmd.assert().success();
+
+    let contents = fs::read_to_string(&out_path).unwrap();
+    let parsed: Value = serde_json::from_str(&contents).unwrap();
+    assert!(parsed.get("paths").is_some());
+    assert!(parsed.get("schemas").is_some());
+    assert!(parsed.get("components").is_none());
+    assert!(parsed.get("info").is_none());
+}
+
+#[test]
 fn non_200_returns_exit_code_1() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -102,6 +126,23 @@ fn reduce_missing_key_returns_exit_code_3() {
         .arg("--reduce")
         .arg("components");
     cmd.assert().failure().code(3);
+}
+
+#[test]
+fn outline_profile_rejects_reduce_flag() {
+    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":{}}}"#);
+    let temp = tempdir().unwrap();
+    let out_path = temp.path().join("openapi.outline.json");
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--url")
+        .arg(server.url("/openapi.json"))
+        .arg("--out")
+        .arg(&out_path)
+        .arg("--profile")
+        .arg("outline")
+        .arg("--reduce")
+        .arg("paths");
+    cmd.assert().failure().code(1);
 }
 
 #[test]
