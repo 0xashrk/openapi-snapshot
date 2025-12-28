@@ -3,7 +3,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::Value;
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -112,11 +112,11 @@ impl Config {
             None => Vec::new(),
         };
 
+        let url_from_default = cli.common.url.is_none();
         let url = cli
             .common
             .url
             .unwrap_or_else(|| DEFAULT_URL.to_string());
-        let url_from_default = cli.common.url.is_none();
         let out = if cli.common.stdout {
             cli.common.out
         } else {
