@@ -21,6 +21,9 @@
 | 5 | 5.1 | Pretty output default | default output is multi-line JSON | Done |
 | 5 | 5.2 | Default output path update | default path drops `.min` | Done |
 | 5 | 5.3 | Docs + tests | README + tests reflect defaults | Done |
+| 6 | 6.1 | Output profiles | add `outline` profile | Planned |
+| 6 | 6.2 | Outline shape | path + schema refs only | Planned |
+| 6 | 6.3 | Docs + tests | README + tests reflect outline | Planned |
 
 ---
 
@@ -139,6 +142,7 @@ Exit codes:
   - write to temp file in same directory
   - rename to final path
 - Output directories are created automatically if missing.
+- Optional output profiles may further reduce payload size (see Phase 6).
 
 ---
 
@@ -285,6 +289,54 @@ Deliverables:
 Tests:
 - Default output contains newlines (pretty JSON).
 - `--minify true` produces single-line JSON.
+
+### Phase 6: Outline Output Profile
+
+Goal: produce a compact "endpoint outline" suitable for agents and frontend tooling.
+
+Subphases:
+- 6.1: Add `--profile outline` flag (default `full`).
+- 6.2: Implement outline shape for paths + schema refs.
+- 6.3: Update README + tests to document and validate outline output.
+
+Outline output shape (conceptual):
+```
+{
+  "paths": {
+    "/health": {
+      "get": {
+        "query": [],
+        "request": null,
+        "responses": {
+          "200": "#/components/schemas/HealthResponse"
+        }
+      }
+    }
+  },
+  "schemas": {
+    "HealthResponse": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": "string"
+      }
+    }
+  }
+}
+```
+
+Rules:
+- Keep only method + path, query params, request body schema ref, response schema ref.
+- For schemas, keep `type`, `required`, and `properties` name + type (or `$ref`).
+- Drop descriptions, examples, tags, operationId, format, and extensions.
+
+Deliverables:
+- `openapi-snapshot --profile outline` writes the outline file.
+- Output is stable and smaller than full spec.
+
+Tests:
+- Outline output omits descriptions and extra metadata.
+- Outline output preserves schema refs and required properties.
 
 ---
 
