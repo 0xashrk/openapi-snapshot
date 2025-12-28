@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use crate::cli::{Cli, Command, OutputProfile, DEFAULT_OUT, DEFAULT_REDUCE, DEFAULT_URL};
+use crate::cli::{
+    Cli, Command, OutputProfile, DEFAULT_OUT, DEFAULT_OUTLINE_OUT, DEFAULT_REDUCE, DEFAULT_URL,
+};
 use crate::errors::AppError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +31,7 @@ pub struct Config {
     pub url: String,
     pub url_from_default: bool,
     pub out: Option<PathBuf>,
+    pub outline_out: Option<PathBuf>,
     pub reduce: Vec<ReduceKey>,
     pub profile: OutputProfile,
     pub minify: bool,
@@ -39,11 +42,14 @@ pub struct Config {
 
 impl Config {
     pub fn from_cli(cli: Cli) -> Result<(Self, Mode), AppError> {
-        let mode = match cli.command {
-            Some(Command::Watch(args)) => Mode::Watch {
-                interval_ms: args.interval_ms,
-            },
-            None => Mode::Snapshot,
+        let (mode, no_outline) = match cli.command {
+            Some(Command::Watch(args)) => (
+                Mode::Watch {
+                    interval_ms: args.interval_ms,
+                },
+                args.no_outline,
+            ),
+            None => (Mode::Snapshot, false),
         };
 
         let reduce_value = match (&cli.common.reduce, mode, cli.common.profile) {
@@ -63,12 +69,26 @@ impl Config {
         } else {
             Some(cli.common.out.unwrap_or_else(|| PathBuf::from(DEFAULT_OUT)))
         };
+        let outline_out = if cli.common.stdout {
+            None
+        } else {
+            match cli.common.outline_out {
+                Some(path) => Some(path),
+                None => match (mode, cli.common.profile, no_outline) {
+                    (Mode::Watch { .. }, OutputProfile::Full, false) => {
+                        Some(PathBuf::from(DEFAULT_OUTLINE_OUT))
+                    }
+                    _ => None,
+                },
+            }
+        };
 
         Ok((
             Self {
                 url,
                 url_from_default,
                 out,
+                outline_out,
                 reduce,
                 profile: cli.common.profile,
                 minify: cli.common.minify,
@@ -90,6 +110,11 @@ pub fn validate_config(config: &Config) -> Result<(), AppError> {
     if config.profile == OutputProfile::Outline && !config.reduce.is_empty() {
         return Err(AppError::Usage(
             "--reduce is not supported with --profile outline.".to_string(),
+        ));
+    }
+    if config.profile == OutputProfile::Outline && config.outline_out.is_some() {
+        return Err(AppError::Usage(
+            "--outline-out is not supported with --profile outline.".to_string(),
         ));
     }
     Ok(())
@@ -152,10 +177,14 @@ mod tests {
     #[test]
     fn defaults_apply_for_watch_mode() {
         let cli = Cli {
-            command: Some(Command::Watch(WatchArgs { interval_ms: 500 })),
+            command: Some(Command::Watch(WatchArgs {
+                interval_ms: 500,
+                no_outline: false,
+            })),
             common: CommonArgs {
                 url: None,
                 out: None,
+                outline_out: None,
                 reduce: None,
                 profile: OutputProfile::Full,
                 minify: true,
@@ -168,7 +197,34 @@ mod tests {
         assert_eq!(config.url, DEFAULT_URL);
         assert!(config.url_from_default);
         assert_eq!(config.out.unwrap(), PathBuf::from(DEFAULT_OUT));
+        assert_eq!(
+            config.outline_out.unwrap(),
+            PathBuf::from(DEFAULT_OUTLINE_OUT)
+        );
         assert_eq!(config.reduce, vec![ReduceKey::Paths, ReduceKey::Components]);
         assert!(matches!(mode, Mode::Watch { .. }));
+    }
+
+    #[test]
+    fn watch_mode_respects_no_outline() {
+        let cli = Cli {
+            command: Some(Command::Watch(WatchArgs {
+                interval_ms: 500,
+                no_outline: true,
+            })),
+            common: CommonArgs {
+                url: None,
+                out: None,
+                outline_out: None,
+                reduce: None,
+                profile: OutputProfile::Full,
+                minify: true,
+                timeout_ms: 10_000,
+                header: Vec::new(),
+                stdout: false,
+            },
+        };
+        let (config, _) = Config::from_cli(cli).unwrap();
+        assert!(config.outline_out.is_none());
     }
 }

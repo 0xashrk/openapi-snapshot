@@ -62,7 +62,7 @@ fn reduces_output_to_paths_and_components() {
 #[test]
 fn outline_profile_outputs_paths_and_schemas_only() {
     let server = mock_server_with_body(
-        r#"{"openapi":"3.0.3","info":{"title":"x"},"paths":{"/health":{"get":{"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/HealthResponse"}}}}}}}},"components":{"schemas":{"HealthResponse":{"type":"object","properties":{"status":{"type":"string"}},"required":["status"]}}}}"#,
+        r##"{"openapi":"3.0.3","info":{"title":"x"},"paths":{"/health":{"get":{"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/HealthResponse"}}}}}}}},"components":{"schemas":{"HealthResponse":{"type":"object","properties":{"status":{"type":"string"}},"required":["status"]}}}}"##,
     );
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
@@ -81,6 +81,32 @@ fn outline_profile_outputs_paths_and_schemas_only() {
     assert!(parsed.get("schemas").is_some());
     assert!(parsed.get("components").is_none());
     assert!(parsed.get("info").is_none());
+}
+
+#[test]
+fn writes_outline_out_when_requested() {
+    let server = mock_server_with_body(
+        r#"{"openapi":"3.0.3","paths":{"/health":{}},"components":{"schemas":{"Health":{"type":"object"}}}}"#,
+    );
+    let temp = tempdir().unwrap();
+    let out_path = temp.path().join("openapi.json");
+    let outline_path = temp.path().join("openapi.outline.json");
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--url")
+        .arg(server.url("/openapi.json"))
+        .arg("--out")
+        .arg(&out_path)
+        .arg("--outline-out")
+        .arg(&outline_path);
+    cmd.assert().success();
+
+    let full_contents = fs::read_to_string(&out_path).unwrap();
+    let outline_contents = fs::read_to_string(&outline_path).unwrap();
+    let full_json: Value = serde_json::from_str(&full_contents).unwrap();
+    let outline_json: Value = serde_json::from_str(&outline_contents).unwrap();
+    assert!(full_json.get("paths").is_some());
+    assert!(outline_json.get("paths").is_some());
+    assert!(outline_json.get("schemas").is_some());
 }
 
 #[test]
@@ -142,6 +168,24 @@ fn outline_profile_rejects_reduce_flag() {
         .arg("outline")
         .arg("--reduce")
         .arg("paths");
+    cmd.assert().failure().code(1);
+}
+
+#[test]
+fn outline_profile_rejects_outline_out() {
+    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":{}}}"#);
+    let temp = tempdir().unwrap();
+    let out_path = temp.path().join("openapi.outline.json");
+    let outline_path = temp.path().join("extra.outline.json");
+    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    cmd.arg("--url")
+        .arg(server.url("/openapi.json"))
+        .arg("--out")
+        .arg(&out_path)
+        .arg("--outline-out")
+        .arg(&outline_path)
+        .arg("--profile")
+        .arg("outline");
     cmd.assert().failure().code(1);
 }
 

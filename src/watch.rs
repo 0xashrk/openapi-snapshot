@@ -4,14 +4,14 @@ use std::time::Duration;
 
 use crate::config::Config;
 use crate::errors::AppError;
-use crate::output::{build_output, write_output};
+use crate::output::{build_outputs, write_outputs};
 
 pub fn run_watch(config: &mut Config, interval_ms: u64) -> Result<(), AppError> {
     let mut prompted = false;
     loop {
-        match build_output(config) {
-            Ok(payload) => {
-                if let Err(err) = write_output(config, &payload) {
+        match build_outputs(config) {
+            Ok(outputs) => {
+                if let Err(err) = write_outputs(config, &outputs) {
                     eprintln!("{err}");
                 }
             }

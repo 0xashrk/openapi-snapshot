@@ -1,6 +1,6 @@
 use clap::Parser;
 use openapi_snapshot::{
-    build_output, maybe_prompt_for_url, run_watch, validate_config, write_output, AppError, Cli,
+    build_outputs, maybe_prompt_for_url, run_watch, validate_config, write_outputs, AppError, Cli,
     Config, Mode,
 };
 
@@ -22,12 +22,12 @@ fn main() {
     match mode {
         Mode::Snapshot => {
             let mut config = config;
-            let payload = match build_output(&config) {
-                Ok(payload) => payload,
+            let outputs = match build_outputs(&config) {
+                Ok(outputs) => outputs,
                 Err(err) => {
                     if let Ok(true) = maybe_prompt_for_url(&mut config, &err) {
-                        match build_output(&config) {
-                            Ok(payload) => payload,
+                        match build_outputs(&config) {
+                            Ok(outputs) => outputs,
                             Err(err) => exit_with_error(err),
                         }
                     } else {
@@ -36,7 +36,7 @@ fn main() {
                 }
             };
 
-            if let Err(err) = write_output(&config, &payload) {
+            if let Err(err) = write_outputs(&config, &outputs) {
                 exit_with_error(err);
             }
         }

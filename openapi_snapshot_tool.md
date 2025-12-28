@@ -26,34 +26,39 @@
 | 6 | 6.3 | Docs + tests | README + tests reflect outline | Done |
 | 7 | 7.1 | Refactor lib | split `src/lib.rs` into modules | Done |
 | 7 | 7.2 | Spec + tests | add refactor spec + move unit tests | Done |
+| 8 | 8.1 | Dual outputs in watch | watch writes full + outline | Done |
+| 8 | 8.2 | CLI flags | `--outline-out`, `--no-outline` | Done |
+| 8 | 8.3 | Docs + tests | README + tests reflect dual output | Done |
 
 ---
 
 ## Summary
 
-Build a small Rust CLI crate named `openapi-snapshot` that fetches an OpenAPI JSON document from a running backend (e.g., utoipa at `/api-docs/openapi.json`) and writes a minified JSON file suitable for consumption by agents and frontend tooling.
+Build a small Rust CLI crate named `openapi-snapshot` that fetches an OpenAPI JSON document from a running backend (e.g., utoipa at `/api-docs/openapi.json`) and writes a JSON snapshot suitable for consumption by agents and frontend tooling.
 
 Primary goals:
 - Zero-code integration for users who already serve OpenAPI JSON.
-- Single command to generate a minified spec file.
+- Single command to generate a spec snapshot (pretty by default, minify optional).
 - Optional reduction to `paths` and `components` only.
+- Optional outline output to keep a smaller agent-friendly file.
 
 Primary use case:
-- Keep a local file (e.g., `spec/backend_openapi.min.json`) continuously updated during backend development so agents and frontend tooling always have current endpoint inputs/outputs.
+- Keep a local file (e.g., `openapi/backend_openapi.json`) continuously updated during backend development so agents and frontend tooling always have current endpoint inputs/outputs.
+- Optionally write an outline file alongside the full snapshot for low-context agents.
 
 ---
 
 ## Goals
 
 - Provide a dead-simple CLI that works with any OpenAPI JSON URL.
-- Produce a single-line minified JSON file.
+- Produce a JSON snapshot (pretty by default, minify optional).
 - Optionally reduce output to `{ paths, components }` only.
 - Keep usage obvious to non-Rust users.
 
 ## Non-Goals
 
 - Generating OpenAPI from code (that remains app-specific).
-- Bundling a watcher (users can wire to `bacon`, `cargo watch`, or `watchexec`).
+- Bundling a backend restarter (users can wire `bacon`, `cargo watch`, or `watchexec`).
 - Full OpenAPI validation beyond JSON parse and minimal shape checks.
 
 ---
@@ -69,33 +74,33 @@ cargo install openapi-snapshot
 ### Basic usage
 
 ```
-openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out spec/backend_openapi.min.json
+openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json
 ```
 
 ### Reduced output (paths + components only)
 
 ```
-openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out spec/backend_openapi.min.json --reduce paths,components
+openapi-snapshot --url http://localhost:3000/api-docs/openapi.json --out openapi/backend_openapi.json --reduce paths,components
 ```
 
 ### Suggested watcher usage
 
 ```
-cargo watch -x run -x "run --bin openapi-snapshot -- --url http://localhost:3000/api-docs/openapi.json --out spec/backend_openapi.min.json --reduce paths,components"
+openapi-snapshot watch
 ```
 
 ### Continuous update workflow
 
-One command keeps the file updated while you code:
+One command keeps the files updated while you code:
 
 ```
-cargo watch -x run -x "run --bin openapi-snapshot -- --url http://localhost:3000/api-docs/openapi.json --out spec/backend_openapi.min.json --reduce paths,components"
+openapi-snapshot watch
 ```
 
-Leave it running. Every code change:
-- backend restarts,
+Leave it running. Every interval:
 - the spec is re-fetched,
-- `spec/backend_openapi.min.json` updates automatically.
+- `openapi/backend_openapi.json` updates automatically,
+- `openapi/backend_openapi.outline.json` stays in sync (unless disabled).
 
 ---
 
@@ -113,10 +118,12 @@ Defaults (both commands):
 Watch defaults:
 - Reduce: `paths,components`
 - Interval: `2000ms`
+- Outline output: `openapi/backend_openapi.outline.json`
 
 Optional flags:
 - `--url <string>`: Source OpenAPI JSON URL.
 - `--out <path>`: Output path.
+- `--outline-out <path>`: Optional outline output path (full profile only).
 - `--reduce <list>`: Comma-separated list, supports `paths` and/or `components`.
 - `--profile <full|outline>`: Output shape (outline is smaller).
 - `--minify` (default false): When set, output is single-line JSON.
@@ -124,6 +131,7 @@ Optional flags:
 - `--header <key:value>`: Optional repeated header for auth (e.g., API tokens).
 - `--stdout`: Print to stdout instead of file (if set, `--out` is ignored).
 - `watch --interval-ms <int>`: Polling interval for refresh.
+- `watch --no-outline`: Disable the default outline output file.
 
 Exit codes:
 - `0`: success
@@ -140,6 +148,9 @@ Exit codes:
 - Reduced output: JSON containing only:
   - `paths`
   - `components`
+- Outline output (when enabled): JSON containing:
+  - `paths`
+  - `schemas`
 - If `--stdout` is set, write to stdout only (no file writes).
 - If `--out` is used, write atomically:
   - write to temp file in same directory
@@ -353,6 +364,23 @@ Subphases:
 Deliverables:
 - `src/lib.rs` is a thin re-export.
 - Tests continue to pass.
+
+### Phase 8: Dual Output Defaults
+
+Subphases:
+- 8.1: Watch mode writes both full and outline outputs by default.
+- 8.2: Add `--outline-out` and `watch --no-outline`.
+- 8.3: Update README and tests for dual output behavior.
+
+Deliverables:
+- `openapi-snapshot watch` writes `openapi/backend_openapi.json` and `openapi/backend_openapi.outline.json`.
+- Users can override the outline path with `--outline-out` or disable it with `watch --no-outline`.
+- Outline output shares the same minify setting as the primary output.
+
+Tests:
+- CLI integration test writes both outputs when `--outline-out` is set.
+- Config unit test covers default outline output and `--no-outline`.
+- README describes dual output defaults and the disable flag.
 
 ---
 

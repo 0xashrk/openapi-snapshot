@@ -11,20 +11,43 @@ use crate::errors::AppError;
 use crate::fetch::{fetch_openapi, parse_json};
 use crate::outline::outline_openapi;
 
+#[derive(Debug)]
+pub struct OutputPayloads {
+    pub primary: String,
+    pub outline: Option<String>,
+}
+
 pub fn build_output(config: &Config) -> Result<String, AppError> {
+    Ok(build_outputs(config)?.primary)
+}
+
+pub fn build_outputs(config: &Config) -> Result<OutputPayloads, AppError> {
     let body = fetch_openapi(config)?;
     let json = parse_json(&body)?;
-    let output = match config.profile {
+    match config.profile {
         OutputProfile::Full => {
-            let mut json = json;
+            let mut full_value = json.clone();
             if !config.reduce.is_empty() {
-                json = reduce_openapi(json, &config.reduce)?;
+                full_value = reduce_openapi(full_value, &config.reduce)?;
             }
-            json
+            let primary = serialize_json(&full_value, config.minify)?;
+            let outline = if config.outline_out.is_some() {
+                let outline_value = outline_openapi(&json)?;
+                Some(serialize_json(&outline_value, config.minify)?)
+            } else {
+                None
+            };
+            Ok(OutputPayloads { primary, outline })
         }
-        OutputProfile::Outline => outline_openapi(&json)?,
-    };
-    serialize_json(&output, config.minify)
+        OutputProfile::Outline => {
+            let outline_value = outline_openapi(&json)?;
+            let primary = serialize_json(&outline_value, config.minify)?;
+            Ok(OutputPayloads {
+                primary,
+                outline: None,
+            })
+        }
+    }
 }
 
 pub fn write_output(config: &Config, payload: &str) -> Result<(), AppError> {
@@ -38,6 +61,27 @@ pub fn write_output(config: &Config, payload: &str) -> Result<(), AppError> {
         .as_ref()
         .ok_or_else(|| AppError::Usage("--out is required unless --stdout is set.".to_string()))?;
     write_atomic(out_path, payload)
+}
+
+pub fn write_outputs(config: &Config, outputs: &OutputPayloads) -> Result<(), AppError> {
+    if config.stdout {
+        println!("{}", outputs.primary);
+        return Ok(());
+    }
+
+    let out_path = config
+        .out
+        .as_ref()
+        .ok_or_else(|| AppError::Usage("--out is required unless --stdout is set.".to_string()))?;
+    write_atomic(out_path, &outputs.primary)?;
+
+    if let Some(outline_payload) = outputs.outline.as_ref() {
+        if let Some(outline_path) = config.outline_out.as_ref() {
+            write_atomic(outline_path, outline_payload)?;
+        }
+    }
+
+    Ok(())
 }
 
 fn reduce_openapi(value: Value, keys: &[ReduceKey]) -> Result<Value, AppError> {
