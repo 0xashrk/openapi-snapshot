@@ -1,6 +1,6 @@
 [package]
 name = "openapi-snapshot"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Fetch and save an OpenAPI JSON snapshot from a running server."
 license = "MIT"
@@ -13,11 +13,13 @@ categories = ["command-line-utilities", "development-tools"]
 clap = { version = "4.5.23", features = ["derive"] }
 reqwest = { version = "0.12.12", features = ["blocking", "json"] }
 serde_json = "1.0.133"
-ctrlc = "3.4.5"
-ctrlc = "3.4.5"
+ctrlc = "3.5.1"
 
 [dev-dependencies]
 assert_cmd = "2.0.16"
+
 httpmock = "0.7.0"
 predicates = "3.1.3"
 tempfile = "3.15.0"
+
+
