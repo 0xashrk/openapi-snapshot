@@ -85,15 +85,15 @@ pub fn write_outputs(config: &Config, outputs: &OutputPayloads) -> Result<(), Ap
 }
 
 fn reduce_openapi(value: Value, keys: &[ReduceKey]) -> Result<Value, AppError> {
-    let object = value.as_object().ok_or_else(|| {
-        AppError::Reduce("OpenAPI document must be a JSON object".to_string())
-    })?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| AppError::Reduce("OpenAPI document must be a JSON object".to_string()))?;
     let mut reduced = serde_json::Map::new();
     for key in keys {
         let name = key.as_str();
-        let entry = object.get(name).ok_or_else(|| {
-            AppError::Reduce(format!("missing top-level key: {name}"))
-        })?;
+        let entry = object
+            .get(name)
+            .ok_or_else(|| AppError::Reduce(format!("missing top-level key: {name}")))?;
         reduced.insert(name.to_string(), entry.clone());
     }
     Ok(Value::Object(reduced))
@@ -176,6 +176,13 @@ mod tests {
     #[test]
     fn reduce_openapi_missing_key_is_error() {
         let input = json!({"paths": {"x": 1}});
+        let err = reduce_openapi(input, &[ReduceKey::Components]).unwrap_err();
+        assert!(matches!(err, AppError::Reduce(_)));
+    }
+
+    #[test]
+    fn reduce_openapi_requires_object() {
+        let input = json!(["not an object"]);
         let err = reduce_openapi(input, &[ReduceKey::Components]).unwrap_err();
         assert!(matches!(err, AppError::Reduce(_)));
     }

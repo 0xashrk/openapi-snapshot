@@ -1,35 +1,67 @@
-use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use serde_json::Value;
+use std::thread;
 use std::time::Duration;
+
+use reqwest::blocking::Client;
+use reqwest::header::{self, HeaderMap, HeaderName, HeaderValue};
+use serde_json::Value;
 
 use crate::config::Config;
 use crate::errors::AppError;
 
+const USER_AGENT: &str = concat!("openapi-snapshot/", env!("CARGO_PKG_VERSION"));
+const MAX_RETRIES: usize = 3;
+const BASE_BACKOFF_MS: u64 = 100;
+const MAX_BACKOFF_MS: u64 = 2_000;
+const ERROR_SNIPPET_LIMIT: usize = 256;
+
 pub fn fetch_openapi(config: &Config) -> Result<Vec<u8>, AppError> {
+    let headers = build_headers(&config.headers)?;
     let client = Client::builder()
         .timeout(Duration::from_millis(config.timeout_ms))
+        .default_headers(headers)
         .build()
         .map_err(|err| AppError::Network(format!("client error: {err}")))?;
 
-    let headers = build_headers(&config.headers)?;
-    let response = client
-        .get(&config.url)
-        .headers(headers)
-        .send()
-        .map_err(|err| AppError::Network(format!("request failed: {err}")))?;
+    let mut backoff = BASE_BACKOFF_MS;
+    let mut attempt = 0;
+    loop {
+        attempt += 1;
+        match client.get(&config.url).send() {
+            Ok(mut response) => {
+                let status = response.status();
+                if !status.is_success() {
+                    let snippet = body_snippet(response.text().unwrap_or_default());
+                    let message = format!("HTTP {status}: {snippet}");
+                    if should_retry_status(status) && attempt < MAX_RETRIES {
+                        sleep(backoff);
+                        backoff = next_backoff(backoff);
+                        continue;
+                    }
+                    return Err(AppError::Network(message));
+                }
 
-    let status = response.status();
-    if !status.is_success() {
-        return Err(AppError::Network(format!(
-            "unexpected status: {status}"
-        )));
+                match response.bytes() {
+                    Ok(bytes) => return Ok(bytes.to_vec()),
+                    Err(err) => {
+                        if is_retryable_error(&err) && attempt < MAX_RETRIES {
+                            sleep(backoff);
+                            backoff = next_backoff(backoff);
+                            continue;
+                        }
+                        return Err(AppError::Network(format!("failed to read response: {err}")));
+                    }
+                }
+            }
+            Err(err) => {
+                if is_retryable_error(&err) && attempt < MAX_RETRIES {
+                    sleep(backoff);
+                    backoff = next_backoff(backoff);
+                    continue;
+                }
+                return Err(AppError::Network(format!("request failed: {err}")));
+            }
+        }
     }
-
-    response
-        .bytes()
-        .map(|bytes| bytes.to_vec())
-        .map_err(|err| AppError::Network(format!("failed to read response: {err}")))
 }
 
 pub fn parse_json(bytes: &[u8]) -> Result<Value, AppError> {
@@ -38,6 +70,9 @@ pub fn parse_json(bytes: &[u8]) -> Result<Value, AppError> {
 
 fn build_headers(raw_headers: &[String]) -> Result<HeaderMap, AppError> {
     let mut headers = HeaderMap::new();
+    headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
+    headers.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
+
     for raw in raw_headers {
         let (name, value) = parse_header(raw)?;
         headers.insert(name, value);
@@ -61,4 +96,305 @@ fn parse_header(raw: &str) -> Result<(HeaderName, HeaderValue), AppError> {
     let header_value = HeaderValue::from_str(value)
         .map_err(|_| AppError::Usage(format!("invalid header value for: {name}")))?;
     Ok((header_name, header_value))
+}
+
+fn is_retryable_error(err: &reqwest::Error) -> bool {
+    err.is_timeout() || err.is_connect() || err.is_body()
+}
+
+fn should_retry_status(status: reqwest::StatusCode) -> bool {
+    status.as_u16() == 429 || status.is_server_error()
+}
+
+fn next_backoff(current: u64) -> u64 {
+    (current.saturating_mul(2)).min(MAX_BACKOFF_MS)
+}
+
+fn sleep(duration_ms: u64) {
+    thread::sleep(Duration::from_millis(duration_ms));
+}
+
+fn body_snippet(body: String) -> String {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return String::from("<empty body>");
+    }
+    let snippet: String = trimmed.chars().take(ERROR_SNIPPET_LIMIT).collect();
+    if snippet.len() < trimmed.len() {
+        format!("{snippet}…")
+    } else {
+        snippet
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::OutputProfile;
+    use crate::config::Config;
+    use httpmock::prelude::*;
+
+    fn base_config(url: String) -> Config {
+        Config {
+            url,
+            url_from_default: false,
+            out: None,
+            outline_out: None,
+            reduce: Vec::new(),
+            profile: OutputProfile::Full,
+            minify: false,
+            timeout_ms: 2_000,
+            headers: Vec::new(),
+            stdout: false,
+        }
+    }
+
+    #[test]
+    fn default_headers_include_accept_user_agent_and_custom() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/openapi.json")
+                .header("accept", "application/json")
+                .header("user-agent", USER_AGENT)
+                .header("authorization", "Bearer token");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body(r#"{"paths":{},"components":{}}"#);
+        });
+
+        let mut config = base_config(server.url("/openapi.json"));
+        config
+            .headers
+            .push("Authorization: Bearer token".to_string());
+
+        let bytes = fetch_openapi(&config).expect("request should succeed");
+        let value = parse_json(&bytes).unwrap();
+        assert!(value.get("paths").is_some());
+        mock.assert_hits(1);
+    }
+
+    #[test]
+    fn retries_on_server_error_then_succeeds() {
+        let server = MockServer::start();
+        let first = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json");
+            then.status(500).body("temporary");
+        });
+        first.expect(1);
+        let success = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body(r#"{"openapi":"3.0.3","paths":{},"components":{}}"#);
+        });
+        success.expect(1);
+
+        let config = base_config(server.url("/openapi.json"));
+        let bytes = fetch_openapi(&config).expect("should retry and succeed");
+        let value = parse_json(&bytes).unwrap();
+        assert!(value.get("paths").is_some());
+        first.assert_hits(1);
+        success.assert_hits(1);
+    }
+
+    #[test]
+    fn returns_error_with_status_and_snippet_when_retries_exhausted() {
+        let server = MockServer::start();
+        let fail = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json");
+            then.status(500).body("server exploded");
+        });
+
+        let config = base_config(server.url("/openapi.json"));
+        let err = fetch_openapi(&config).unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("HTTP 500"));
+        assert!(message.contains("server exploded"));
+        fail.assert_hits(MAX_RETRIES as u64);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::OutputProfile;
+    use crate::config::Config;
+    use httpmock::prelude::*;
+    use serde_json::json;
+    use std::path::PathBuf;
+
+    fn base_config(url: String) -> Config {
+        Config {
+            url,
+            url_from_default: false,
+            out: None,
+            outline_out: None,
+            reduce: Vec::new(),
+            profile: OutputProfile::Full,
+            minify: false,
+            timeout_ms: 5_000,
+            headers: Vec::new(),
+            stdout: true,
+        }
+    }
+
+    #[test]
+    fn fetch_includes_default_and_custom_headers() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/openapi.json")
+                .header("accept", "application/json")
+                .header("user-agent", USER_AGENT)
+                .header("authorization", "Bearer token");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body(r#"{"openapi":"3.0.3","paths":{},"components":{}}"#);
+        });
+
+        let mut config = base_config(server.url("/openapi.json"));
+        config
+            .headers
+            .push("Authorization: Bearer token".to_string());
+
+        let bytes = fetch_openapi(&config).unwrap();
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["openapi"], json!("3.0.3"));
+        assert!(mock.hits() >= 1);
+    }
+
+    #[test]
+    fn fetch_retries_on_server_error_then_succeeds() {
+        let server = MockServer::start();
+        let fail = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json");
+            then.status(500).body("nope");
+        });
+        let success = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body(r#"{"openapi":"3.0.3","paths":{},"components":{}}"#);
+        });
+
+        let config = base_config(server.url("/openapi.json"));
+        let bytes = fetch_openapi(&config).unwrap();
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["openapi"], json!("3.0.3"));
+        assert!(fail.hits() >= 1);
+        assert!(success.hits() >= 1);
+    }
+
+    #[test]
+    fn fetch_surfaces_status_and_body_snippet() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/openapi.json");
+            then.status(502).body("gateway down");
+        });
+
+        let config = base_config(server.url("/openapi.json"));
+        let err = fetch_openapi(&config).unwrap_err();
+        match err {
+            AppError::Network(msg) => {
+                assert!(msg.contains("502"));
+                assert!(msg.contains("gateway down"));
+            }
+            other => panic!("expected network error, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use httpmock::prelude::*;
+
+    fn make_config(server: &MockServer) -> Config {
+        Config {
+            url: server.url("/openapi.json"),
+            url_from_default: false,
+            out: None,
+            outline_out: None,
+            reduce: Vec::new(),
+            profile: crate::cli::OutputProfile::Full,
+            minify: false,
+            timeout_ms: 5_000,
+            headers: Vec::new(),
+            stdout: true,
+        }
+    }
+
+    #[test]
+    fn default_headers_and_custom_headers_are_sent() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/openapi.json")
+                .header("accept", "application/json")
+                .header("user-agent", USER_AGENT)
+                .header("x-api-key", "secret");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body("{}{}");
+        });
+
+        let mut config = make_config(&server);
+        config.headers = vec!["x-api-key: secret".to_string()];
+        let result = fetch_openapi(&config);
+        assert!(result.is_ok());
+        mock.assert();
+    }
+
+    #[test]
+    fn retries_then_succeeds_after_server_error() {
+        let server = MockServer::start();
+        let fail = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json").expect(1);
+            then.status(500).body("nope");
+        });
+        let succeed = server.mock(|when, then| {
+            when.method(GET).path("/openapi.json").expect(1);
+            then.status(200)
+                .header("content-type", "application/json")
+                .body("{\"ok\":true}");
+        });
+
+        let config = make_config(&server);
+        let bytes = fetch_openapi(&config).expect("should eventually succeed");
+        assert_eq!(bytes, b"{\"ok\":true}".to_vec());
+        fail.assert();
+        succeed.assert();
+    }
+
+    #[test]
+    fn stops_after_max_retries_and_returns_error() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/openapi.json")
+                .expect(MAX_RETRIES as u64);
+            then.status(503).body("down");
+        });
+
+        let config = make_config(&server);
+        let err = fetch_openapi(&config).unwrap_err();
+        assert!(format!("{err}").contains("HTTP 503"));
+        mock.assert();
+    }
+
+    #[test]
+    fn error_includes_body_snippet() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/openapi.json").expect(1);
+            then.status(500).body("something went wrong in backend");
+        });
+
+        let config = make_config(&server);
+        let err = fetch_openapi(&config).unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("something went wrong"));
+    }
 }
