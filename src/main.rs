@@ -1,7 +1,7 @@
 use clap::Parser;
 use openapi_snapshot::{
-    build_outputs, maybe_prompt_for_url, run_watch, validate_config, write_outputs, AppError, Cli,
-    Config, Mode,
+    AppError, Cli, Config, Mode, build_outputs, maybe_prompt_for_url, run_watch, validate_config,
+    write_outputs,
 };
 
 fn main() {

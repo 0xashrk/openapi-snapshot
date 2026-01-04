@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::cli::{
-    Cli, Command, OutputProfile, DEFAULT_OUT, DEFAULT_OUTLINE_OUT, DEFAULT_REDUCE, DEFAULT_URL,
+    Cli, Command, DEFAULT_OUT, DEFAULT_OUTLINE_OUT, DEFAULT_REDUCE, DEFAULT_URL, OutputProfile,
 };
 use crate::errors::AppError;
 
@@ -141,7 +141,7 @@ pub fn parse_reduce_list(value: &str) -> Result<Vec<ReduceKey>, AppError> {
             _ => {
                 return Err(AppError::Reduce(format!(
                     "unsupported reduce value: {trimmed}"
-                )))
+                )));
             }
         }
     }

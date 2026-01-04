@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 
@@ -227,7 +227,7 @@ fn simplify_schema_definition(schema: &Value) -> ResultValue {
                 Some(_) => {
                     return Err(AppError::Outline(
                         "schema properties must be an object".to_string(),
-                    ))
+                    ));
                 }
             };
 
