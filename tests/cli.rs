@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use httpmock::prelude::*;
 use predicates::str::contains;
 use serde_json::Value;
@@ -22,7 +22,7 @@ fn writes_pretty_output_by_default() {
         mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":{}},"components":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -42,7 +42,7 @@ fn reduces_output_to_paths_and_components() {
     );
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -65,7 +65,7 @@ fn outline_profile_outputs_paths_and_schemas_only() {
     );
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -90,7 +90,7 @@ fn writes_outline_out_when_requested() {
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.json");
     let outline_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -117,7 +117,7 @@ fn non_200_returns_exit_code_1() {
     });
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -130,7 +130,7 @@ fn invalid_json_returns_exit_code_2() {
     let server = mock_server_with_body("not-json");
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -143,7 +143,7 @@ fn reduce_missing_key_returns_exit_code_3() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -158,7 +158,7 @@ fn reduce_empty_list_returns_exit_code_3() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -176,7 +176,7 @@ fn outline_profile_rejects_reduce_flag() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":{}}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -197,7 +197,7 @@ fn outline_profile_rejects_outline_out() {
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
     let outline_path = temp.path().join("extra.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -219,7 +219,7 @@ fn outline_profile_rejects_query_param_missing_name() {
     );
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -239,7 +239,7 @@ fn outline_profile_rejects_response_missing_schema() {
     );
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -257,7 +257,7 @@ fn reduce_rejects_unsupported_key() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{},"components":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -271,29 +271,11 @@ fn reduce_rejects_unsupported_key() {
 }
 
 #[test]
-fn reduce_empty_list_returns_exit_code_3() {
-    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{},"components":{}}"#);
-    let temp = tempdir().unwrap();
-    let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
-    cmd.arg("--url")
-        .arg(server.url("/openapi.json"))
-        .arg("--out")
-        .arg(&out_path)
-        .arg("--reduce")
-        .arg("");
-    cmd.assert()
-        .failure()
-        .code(3)
-        .stderr(contains("reduce list cannot be empty"));
-}
-
-#[test]
 fn outline_profile_rejects_malformed_paths() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":[]}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -307,86 +289,11 @@ fn outline_profile_rejects_malformed_paths() {
 }
 
 #[test]
-fn outline_profile_rejects_missing_query_name() {
-    let server = mock_server_with_body(
-        r#"{"openapi":"3.0.3","paths":{"/health":{"get":{"parameters":[{"in":"query","schema":{"type":"string"}}],"responses":{"200":{"content":{"application/json":{"schema":{"type":"string"}}}}}}}}}"#,
-    );
-    let temp = tempdir().unwrap();
-    let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
-    cmd.arg("--url")
-        .arg(server.url("/openapi.json"))
-        .arg("--out")
-        .arg(&out_path)
-        .arg("--profile")
-        .arg("outline");
-    cmd.assert()
-        .failure()
-        .code(3)
-        .stderr(contains("query parameter missing name"));
-}
-
-#[test]
-fn outline_profile_rejects_response_without_schema() {
-    let server = mock_server_with_body(
-        r#"{"openapi":"3.0.3","paths":{"/health":{"get":{"responses":{"200":{"content":{"application/json":{}}}}}}}}"#,
-    );
-    let temp = tempdir().unwrap();
-    let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
-    cmd.arg("--url")
-        .arg(server.url("/openapi.json"))
-        .arg("--out")
-        .arg(&out_path)
-        .arg("--profile")
-        .arg("outline");
-    cmd.assert()
-        .failure()
-        .code(3)
-        .stderr(contains("content missing schema"));
-}
-
-#[test]
-fn outline_profile_rejects_reduce_flag() {
-    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":{}}}"#);
-    let temp = tempdir().unwrap();
-    let out_path = temp.path().join("openapi.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
-    cmd.arg("--url")
-        .arg(server.url("/openapi.json"))
-        .arg("--out")
-        .arg(&out_path)
-        .arg("--profile")
-        .arg("outline")
-        .arg("--reduce")
-        .arg("paths");
-    cmd.assert().failure().code(1);
-}
-
-#[test]
-fn outline_profile_rejects_outline_out() {
-    let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{"/health":{}}}"#);
-    let temp = tempdir().unwrap();
-    let out_path = temp.path().join("openapi.outline.json");
-    let outline_path = temp.path().join("extra.outline.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
-    cmd.arg("--url")
-        .arg(server.url("/openapi.json"))
-        .arg("--out")
-        .arg(&out_path)
-        .arg("--outline-out")
-        .arg(&outline_path)
-        .arg("--profile")
-        .arg("outline");
-    cmd.assert().failure().code(1);
-}
-
-#[test]
 fn stdout_writes_output_without_file() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--stdout");
@@ -399,7 +306,7 @@ fn minify_true_writes_single_line() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -416,7 +323,7 @@ fn minify_true_writes_single_line() {
 fn directory_as_output_returns_exit_code_4() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
     let temp = tempdir().unwrap();
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -429,7 +336,7 @@ fn creates_output_directory_if_missing() {
     let server = mock_server_with_body(r#"{"openapi":"3.0.3","paths":{}}"#);
     let temp = tempdir().unwrap();
     let out_path = temp.path().join("nested/dir/openapi.min.json");
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--url")
         .arg(server.url("/openapi.json"))
         .arg("--out")
@@ -440,7 +347,7 @@ fn creates_output_directory_if_missing() {
 
 #[test]
 fn help_includes_example() {
-    let mut cmd = Command::cargo_bin("openapi-snapshot").unwrap();
+    let mut cmd = cargo_bin_cmd!("openapi-snapshot");
     cmd.arg("--help");
     cmd.assert()
         .success()
