@@ -21,6 +21,8 @@ Fetch a running backend's OpenAPI JSON and write a readable snapshot for agents 
 
 Agents and frontend projects work best when they can see the backend contract. The snapshot file is meant to be referenced from `AGENTS.md`/`CLAUDE.md` or frontend docs so everyone (humans and tools) always has the current endpoints and schemas.
 
+> **Lightweight MCP alternative:** For local dev with Claude Code or similar tools, this replaces the need for a full MCP server. The agent reads your snapshot files for discovery and calls your API directly via curl — no extra protocol layer required.
+
 ## Recommended usage (agents + frontend)
 
 1) Generate the snapshot file in a predictable location (e.g., `openapi/backend_openapi.json`).
