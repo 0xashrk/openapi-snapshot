@@ -23,6 +23,21 @@ Agents and frontend projects work best when they can see the backend contract. T
 
 > **Lightweight MCP alternative:** For local dev with Claude Code or similar tools, this replaces the need for a full MCP server. The agent reads your snapshot files for discovery and calls your API directly via curl — no extra protocol layer required.
 
+## Using with AI agents (Claude Code, Cursor, etc.)
+
+1. Generate snapshots to a predictable path:
+   ```
+   openapi-snapshot --out openapi/backend_openapi.json --outline-out openapi/backend_openapi.outline.json
+   ```
+
+2. Reference in your `CLAUDE.md` or `AGENTS.md`:
+   ```
+   Backend endpoint details live in `openapi/`.
+   Use `openapi/backend_openapi.outline.json` for general details.
+   ```
+
+3. The agent reads the spec, discovers your endpoints, and calls them directly via curl — no MCP server needed.
+
 ## Recommended usage (agents + frontend)
 
 1) Generate the snapshot file in a predictable location (e.g., `openapi/backend_openapi.json`).
