@@ -75,10 +75,10 @@ pub fn write_outputs(config: &Config, outputs: &OutputPayloads) -> Result<(), Ap
         .ok_or_else(|| AppError::Usage("--out is required unless --stdout is set.".to_string()))?;
     write_atomic(out_path, &outputs.primary)?;
 
-    if let Some(outline_payload) = outputs.outline.as_ref() {
-        if let Some(outline_path) = config.outline_out.as_ref() {
-            write_atomic(outline_path, outline_payload)?;
-        }
+    if let (Some(outline_payload), Some(outline_path)) =
+        (outputs.outline.as_ref(), config.outline_out.as_ref())
+    {
+        write_atomic(outline_path, outline_payload)?;
     }
 
     Ok(())

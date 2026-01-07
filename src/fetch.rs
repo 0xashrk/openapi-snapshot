@@ -27,7 +27,7 @@ pub fn fetch_openapi(config: &Config) -> Result<Vec<u8>, AppError> {
     loop {
         attempt += 1;
         match client.get(&config.url).send() {
-            Ok(mut response) => {
+            Ok(response) => {
                 let status = response.status();
                 if !status.is_success() {
                     let snippet = body_snippet(response.text().unwrap_or_default());
@@ -176,11 +176,20 @@ mod tests {
 
     #[test]
     fn retries_on_server_error_then_succeeds() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+        CALL_COUNT.store(0, Ordering::SeqCst);
+
         let server = MockServer::start();
-        let fail = server.mock(|when, then| {
-            when.method(GET).path("/openapi.json");
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/openapi.json")
+                .matches(|_| CALL_COUNT.fetch_add(1, Ordering::SeqCst) < 1);
             then.status(500).body("temporary");
         });
+
         let success = server.mock(|when, then| {
             when.method(GET).path("/openapi.json");
             then.status(200)
@@ -192,7 +201,7 @@ mod tests {
         let bytes = fetch_openapi(&config).unwrap();
         let value: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(value["openapi"], serde_json::json!("3.0.3"));
-        assert!(fail.hits() >= 1);
+        assert!(CALL_COUNT.load(Ordering::SeqCst) >= 2);
         assert!(success.hits() >= 1);
     }
 
@@ -250,14 +259,14 @@ mod tests {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(GET).path("/openapi.json");
-            then.status(500).body("something went wrong in backend");
+            then.status(400).body("something went wrong in backend");
         });
 
         let config = base_config(server.url("/openapi.json"));
         let err = fetch_openapi(&config).unwrap_err();
         match err {
             AppError::Network(msg) => {
-                assert!(msg.contains("500"));
+                assert!(msg.contains("400"));
                 assert!(msg.contains("something went wrong in backend"));
             }
             other => panic!("expected network error, got {other:?}"),
